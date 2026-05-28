@@ -590,7 +590,8 @@
 
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script>
     let uid = 0;
     let dragSrc = null;
@@ -923,111 +924,150 @@
     }
 
     // ── Exportera PDF ────────────────────────────────────────
+    function hexToRgb(hex) {
+      const h = hex.replace('#','');
+      return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+    }
+
     async function exportPDF() {
       const btn  = document.getElementById('btn-pdf');
       const orig = btn.innerHTML;
       btn.textContent = 'Genererar…';
       btn.disabled = true;
 
-      const proj     = document.getElementById('f-projekt').value || 'Materiallista';
-      const namn     = document.getElementById('f-namn').value    || '';
-      const datum    = document.getElementById('f-datum').value   || new Date().toISOString().slice(0,10);
-      const grandVal = document.getElementById('grand').textContent;
-      const fname    = (proj.replace(/\s+/g,'-') + '-' + datum).toLowerCase() + '.pdf';
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc  = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const proj = document.getElementById('f-projekt').value || '';
+        const namn = document.getElementById('f-namn').value    || '';
+        const datum = document.getElementById('f-datum').value  || new Date().toISOString().slice(0,10);
+        const grandVal = document.getElementById('grand').textContent;
+        const fname = ((proj||'materiallista').replace(/\s+/g,'-') + '-' + datum).toLowerCase() + '.pdf';
 
-      const rows = [];
-      document.querySelectorAll('#tbody tr').forEach((tr, i) => {
-        const inputs  = tr.querySelectorAll('input');
-        const antalN  = parseFloat(inputs[2]?.value) || 0;
-        const prisN   = parseFloat(inputs[3]?.value) || 0;
-        const totN    = antalN * prisN;
-        const sup     = getRowSup(tr);
-        rows.push({
-          n: i+1, art: inputs[0]?.value||'', enr: inputs[1]?.value||'',
-          sup, antal: inputs[2]?.value||'', pris: prisN ? fmt(prisN) : '',
-          tot: totN > 0 ? fmt(totN) : '—', totN
+        // Rubrik
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(26, 24, 22);
+        doc.text('Materiallista', 14, 20);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(138, 132, 122);
+        doc.text('ARTIKLAR & PRISKALKYL', 14, 26);
+
+        // Meta (höger)
+        doc.setFontSize(9);
+        doc.setTextColor(26, 24, 22);
+        let my = 17;
+        if (proj)  { doc.text(proj,  196, my, { align: 'right' }); my += 5; }
+        if (namn)  { doc.text(namn,  196, my, { align: 'right' }); my += 5; }
+        if (datum) { doc.text(datum, 196, my, { align: 'right' }); }
+
+        // Linje
+        doc.setDrawColor(26, 24, 22);
+        doc.setLineWidth(0.4);
+        doc.line(14, 30, 196, 30);
+
+        // Samla raddata
+        const tableRows = [];
+        document.querySelectorAll('#tbody tr').forEach((tr, i) => {
+          const inputs = tr.querySelectorAll('input');
+          const antal  = parseFloat(inputs[2]?.value) || 0;
+          const pris   = parseFloat(inputs[3]?.value) || 0;
+          const sup    = getRowSup(tr);
+          tableRows.push([
+            String(i + 1),
+            inputs[0]?.value || '',
+            inputs[1]?.value || '',
+            sup.id || '—',
+            inputs[2]?.value || '',
+            pris ? fmt(pris) : '',
+            antal * pris > 0 ? fmt(antal * pris) : '—',
+          ]);
         });
-      });
 
-      // Delsummor per leverantör för PDF
-      const bySup = {};
-      rows.forEach(r => { if (r.sup.id) bySup[r.sup.id] = (bySup[r.sup.id]||0) + r.totN; });
+        // Tabell
+        doc.autoTable({
+          startY: 35,
+          head: [['#', 'Artikel', 'E-Nummer', 'Lev', 'Antal', 'Pris / st (SEK)', 'Total pris']],
+          body: tableRows,
+          styles: {
+            font: 'helvetica', fontSize: 9,
+            cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+            textColor: [26, 24, 22],
+            lineColor: [224, 219, 210], lineWidth: 0.1,
+          },
+          headStyles: {
+            fillColor: [26, 24, 22], textColor: [245, 242, 236],
+            fontSize: 8, fontStyle: 'bold',
+          },
+          alternateRowStyles: { fillColor: [253, 250, 246] },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 8 },
+            3: { halign: 'center', cellWidth: 14, fontStyle: 'bold' },
+            4: { halign: 'right',  cellWidth: 14 },
+            5: { halign: 'right',  cellWidth: 32 },
+            6: { halign: 'right',  cellWidth: 28 },
+          },
+          didParseCell(data) {
+            if (data.column.index === 3 && data.row.section === 'body') {
+              const sup = SUPPLIERS.find(s => s.id === data.cell.raw);
+              if (sup?.id) {
+                data.cell.styles.textColor = hexToRgb(sup.color);
+                data.cell.styles.fillColor = hexToRgb(sup.bg === 'transparent' ? '#ffffff' : sup.bg);
+              }
+            }
+          },
+          margin: { left: 14, right: 14 },
+        });
 
-      const cell = (txt, x='') =>
-        `<td style="padding:8px 9px;border-bottom:1px solid #e0dbd2;font-size:12px;${x}">${txt}</td>`;
-      const rNum = (txt, x='') => cell(txt, 'text-align:right;font-family:monospace;'+x);
+        const finalY = doc.lastAutoTable.finalY;
 
-      const rowsHtml = rows.map(r => `<tr>
-        ${cell(`<span style="font-size:10px;color:#8a847a;font-family:monospace;">${r.n}</span>`,'text-align:center;width:30px;')}
-        ${cell(r.art)}
-        ${cell(`<span style="font-family:monospace;font-size:11px;">${r.enr}</span>`)}
-        ${cell(r.sup.id
-          ? `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 6px;border-radius:2px;background:${r.sup.bg};color:${r.sup.color};border:1px solid ${r.sup.color}55;">${r.sup.label}</span>`
-          : `<span style="color:#ccc;font-size:11px;">—</span>`,
-          'text-align:center;')}
-        ${rNum(r.antal)} ${rNum(r.pris)} ${rNum(`<strong>${r.tot}</strong>`)}
-      </tr>`).join('');
+        // Leverantörsuppdelning
+        const bySup = {};
+        document.querySelectorAll('#tbody tr').forEach(tr => {
+          const nums = tr.querySelectorAll('input[type=number]');
+          const tot  = (parseFloat(nums[0]?.value)||0) * (parseFloat(nums[1]?.value)||0);
+          const sup  = getRowSup(tr);
+          if (sup.id) bySup[sup.id] = (bySup[sup.id]||0) + tot;
+        });
 
-      const supBreakdown = Object.entries(bySup).map(([id, s]) => {
-        const sup = SUPPLIERS.find(x => x.id === id);
-        return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:16px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${sup.color};display:inline-block;flex-shrink:0;"></span>
-          <span style="font-size:9px;font-weight:700;color:${sup.color};">${id}</span>
-          <span style="font-size:11px;font-family:monospace;">${fmt(s)}</span>
-        </span>`;
-      }).join('');
+        let totalY = finalY;
+        const supEntries = Object.entries(bySup);
+        if (supEntries.length > 0) {
+          doc.setFillColor(240, 237, 230);
+          doc.rect(14, finalY, 182, 8, 'F');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          let xPos = 18;
+          supEntries.forEach(([id, s]) => {
+            const sup = SUPPLIERS.find(x => x.id === id);
+            doc.setTextColor(...hexToRgb(sup?.color || '#1a1816'));
+            doc.text(`${sup?.name || id}: ${fmt(s)}`, xPos, finalY + 5.2);
+            xPos += 42;
+          });
+          totalY = finalY + 8;
+        }
 
-      const metaHtml = [
-        proj  && `<div><span style="color:#8a847a;font-size:9px;text-transform:uppercase;letter-spacing:1px;">Projekt</span>&nbsp;&nbsp;<strong>${proj}</strong></div>`,
-        namn  && `<div><span style="color:#8a847a;font-size:9px;text-transform:uppercase;letter-spacing:1px;">Upprättad av</span>&nbsp;&nbsp;<strong>${namn}</strong></div>`,
-        datum && `<div><span style="color:#8a847a;font-size:9px;text-transform:uppercase;letter-spacing:1px;">Datum</span>&nbsp;&nbsp;<strong>${datum}</strong></div>`,
-      ].filter(Boolean).join('');
+        // Totalrad
+        doc.setFillColor(26, 24, 22);
+        doc.rect(14, totalY, 182, 10, 'F');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(160, 155, 150);
+        doc.text('TOTALT  SEK', 18, totalY + 6.5);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(245, 242, 236);
+        doc.text(grandVal, 196, totalY + 7, { align: 'right' });
 
-      const th  = t => `<th style="background:#1a1816;color:#f5f2ec;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;padding:10px 9px;text-align:left;white-space:nowrap;">${t}</th>`;
-      const thr = t => `<th style="background:#1a1816;color:#f5f2ec;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;padding:10px 9px;text-align:right;white-space:nowrap;">${t}</th>`;
-
-      const html = `<div style="font-family:Arial,sans-serif;padding:0;color:#1a1816;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1816;padding-bottom:14px;margin-bottom:22px;">
-          <div>
-            <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;line-height:1;">Materiallista</div>
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#8a847a;margin-top:4px;">Artiklar &amp; Priskalkyl</div>
-          </div>
-          <div style="text-align:right;font-size:12px;line-height:1.7;">${metaHtml}</div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr>${th('#')}${th('Artikel')}${th('E-Nummer')}${th('Lev')}${thr('Antal')}${thr('Pris / st (SEK)')}${thr('Total pris')}</tr></thead>
-          <tbody>${rowsHtml}</tbody>
-          <tfoot>
-            ${supBreakdown ? `<tr><td colspan="7" style="background:#f0ede6;padding:9px 12px;">${supBreakdown}</td></tr>` : ''}
-            <tr>
-              <td colspan="5" style="background:#1a1816;color:#f5f2ec;padding:12px 10px;">
-                <span style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.55;">Totalt</span>
-              </td>
-              <td style="background:#1a1816;"></td>
-              <td style="background:#1a1816;text-align:right;padding-right:10px;color:#f5f2ec;">
-                <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.55;margin-bottom:2px;">SEK</div>
-                <div style="font-size:18px;font-weight:700;font-family:monospace;">${grandVal}</div>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>`;
-
-      const el = document.createElement('div');
-      el.style.cssText = 'position:fixed;left:-9999px;top:0;width:750px;background:#fff;padding:20px;';
-      el.innerHTML = html;
-      document.body.appendChild(el);
-
-      await html2pdf().set({
-        margin: [14,12], filename: fname,
-        image: { type:'jpeg', quality:.98 },
-        html2canvas: { scale:2, useCORS:true, backgroundColor:'#fff' },
-        jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
-      }).from(el).save();
-
-      document.body.removeChild(el);
-      btn.innerHTML = orig;
-      btn.disabled  = false;
+        doc.save(fname);
+      } catch(err) {
+        console.error('PDF-fel:', err);
+        alert('Kunde inte generera PDF. Försök igen.');
+      } finally {
+        btn.innerHTML = orig;
+        btn.disabled  = false;
+      }
     }
 
     // ── localStorage ────────────────────────────────────────
