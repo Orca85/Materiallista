@@ -438,6 +438,65 @@
       to   { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
+    /* ── Listor-panel ── */
+    .lists-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.25); z-index: 500;
+    }
+    .lists-overlay.open { display: block; }
+
+    .lists-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 300px;
+      background: var(--surface);
+      box-shadow: -4px 0 28px rgba(0,0,0,.12);
+      z-index: 501;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform .22s ease;
+    }
+    .lists-overlay.open .lists-panel { transform: translateX(0); }
+
+    .lists-panel-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px; border-bottom: 1px solid var(--border);
+    }
+    .lists-panel-hd h2 { font-size: 14px; font-weight: 700; }
+    .lists-panel-body { flex: 1; overflow-y: auto; padding: 8px; }
+    .lists-panel-ft {
+      padding: 12px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .list-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 10px; border-radius: 3px; margin-bottom: 2px;
+      border: 1px solid transparent; transition: background .1s;
+    }
+    .list-item:hover { background: var(--bg); }
+    .list-item.active { background: var(--accent-bg); border-color: var(--accent); }
+
+    .list-item-name {
+      flex: 1; font-size: 13px; font-weight: 500;
+      outline: none; border-radius: 2px; padding: 1px 3px;
+      border: 1px solid transparent;
+    }
+    .list-item-name:focus { border-color: var(--accent); background: white; }
+    .list-item.active .list-item-name { color: var(--accent); }
+
+    .list-item-del {
+      width: 22px; height: 22px; border: none; background: transparent;
+      cursor: pointer; color: var(--muted); border-radius: 50%; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .12s; flex-shrink: 0; line-height: 1;
+    }
+    .list-item-del:hover { color: var(--accent); background: var(--accent-bg); }
+
+    .current-list-badge {
+      font-size: 11px; color: var(--muted);
+      margin-top: 3px; display: flex; align-items: center; gap: 5px;
+    }
+    .current-list-badge span { font-weight: 600; color: var(--text); }
+
     /* ── Print ── */
     @media print {
       body { padding: 0; background: #fff; }
@@ -465,6 +524,7 @@
       <div class="header-brand">
         <h1>Materiallista</h1>
         <p>Artiklar &amp; Priskalkyl</p>
+        <div class="current-list-badge">Lista: <span id="current-list-name">—</span></div>
       </div>
       <div class="header-meta">
         <div class="meta-row">
@@ -565,6 +625,13 @@
           </svg>
           Exportera CSV
         </button>
+        <button class="btn btn-ghost" onclick="exportJSON()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            <path d="M8 13h2l1 3 1-3h2"/><line x1="8" y1="17" x2="16" y2="17"/>
+          </svg>
+          Exportera JSON
+        </button>
         <button class="btn btn-ghost" id="btn-pdf" onclick="exportPDF()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -576,18 +643,44 @@
           Exportera PDF
         </button>
       </div>
-      <div style="display:flex;align-items:center;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
         <span id="save-ind">✓ Sparad</span>
         <span class="row-count" id="rowcount">0 artiklar</span>
-        <button class="btn btn-ghost" onclick="clearList()" title="Rensa och börja om">
+        <button class="btn btn-ghost" onclick="openListsPanel()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          Listor
+        </button>
+      </div>
+      <input type="file" id="csv-input"  accept=".csv"  style="display:none" onchange="importCSV(this.files[0]);  this.value=''">
+      <input type="file" id="json-input" accept=".json" style="display:none" onchange="importJSON(this.files[0]); this.value=''">
+    </div>
+
+  </div>
+
+  <!-- Listor-panel -->
+  <div class="lists-overlay" id="lists-overlay" onclick="closePanelOnBg(event)">
+    <div class="lists-panel">
+      <div class="lists-panel-hd">
+        <h2>Mina Listor</h2>
+        <button class="btn-del" onclick="closeListsPanel()" style="font-size:18px;">×</button>
+      </div>
+      <div class="lists-panel-body" id="lists-list"></div>
+      <div class="lists-panel-ft">
+        <button class="btn btn-primary" onclick="createNewList()" style="width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           Ny lista
         </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="document.getElementById('json-input').click()">Importera JSON</button>
+          <button class="btn btn-ghost" style="flex:1;font-size:12px;" onclick="document.getElementById('csv-input').click()">Importera CSV</button>
+        </div>
       </div>
     </div>
-
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1075,99 +1168,236 @@
       }
     }
 
-    // ── localStorage ────────────────────────────────────────
+    // ── Multi-lista localStorage ──────────────────────────────
     let saveTimer = null;
 
-    function scheduleSave() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(saveToStorage, 500);
+    const STORE_KEY = 'matriallista-lists-v2';
+
+    function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+
+    function getAllData() {
+      try { const r = localStorage.getItem(STORE_KEY); return r ? JSON.parse(r) : { currentId: null, lists: [] }; }
+      catch { return { currentId: null, lists: [] }; }
     }
 
-    function saveToStorage() {
-      const meta = {
-        projekt: document.getElementById('f-projekt').value,
-        namn:    document.getElementById('f-namn').value,
-        datum:   document.getElementById('f-datum').value,
-      };
+    function saveAllData(data) { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+
+    function collectRows() {
       const rows = [];
       document.querySelectorAll('#tbody tr').forEach(tr => {
-        const inputs = tr.querySelectorAll('input');
+        const inp = tr.querySelectorAll('input');
         rows.push({
-          art:    inputs[0]?.value || '',
-          enr:    inputs[1]?.value || '',
-          supIdx: parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx || '0'),
-          antal:  inputs[2]?.value || '',
-          pris:   inputs[3]?.value || '',
+          art: inp[0]?.value||'', enr: inp[1]?.value||'',
+          supIdx: parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx||'0'),
+          antal: inp[2]?.value||'', pris: inp[3]?.value||'',
         });
       });
-      localStorage.setItem('matriallista-v1', JSON.stringify({ meta, rows }));
+      return rows;
+    }
+
+    function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveToStorage, 500); }
+
+    function saveToStorage() {
+      const data = getAllData();
+      const list = data.lists.find(l => l.id === data.currentId);
+      if (!list) return;
+      list.meta = { projekt: document.getElementById('f-projekt').value, namn: document.getElementById('f-namn').value, datum: document.getElementById('f-datum').value };
+      list.rows = collectRows();
+      saveAllData(data);
       const ind = document.getElementById('save-ind');
-      if (ind) {
-        ind.style.opacity = '1';
-        clearTimeout(ind._t);
-        ind._t = setTimeout(() => { ind.style.opacity = '0'; }, 1800);
-      }
+      if (ind) { ind.style.opacity='1'; clearTimeout(ind._t); ind._t=setTimeout(()=>{ind.style.opacity='0';},1800); }
     }
 
-    function loadFromStorage() {
-      try {
-        const raw = localStorage.getItem('matriallista-v1');
-        if (!raw) return false;
-        const { meta, rows } = JSON.parse(raw);
-        if (meta) {
-          document.getElementById('f-projekt').value = meta.projekt || '';
-          document.getElementById('f-namn').value    = meta.namn    || '';
-          if (meta.datum) document.getElementById('f-datum').value = meta.datum;
-        }
-        if (rows?.length) {
-          rows.forEach(r => {
-            uid++;
-            const tr = createRow(uid);
-            document.getElementById('tbody').appendChild(tr);
-            const inputs = tr.querySelectorAll('input');
-            inputs[0].value = r.art   || '';
-            inputs[1].value = r.enr   || '';
-            inputs[2].value = r.antal || '';
-            inputs[3].value = r.pris  || '';
-            if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
-              const td  = tr.querySelector('.sup-cell');
-              const bdg = tr.querySelector('.sup-badge');
-              td.dataset.supIdx = r.supIdx;
-              applySupplier(bdg, td, SUPPLIERS[r.supIdx]);
-            }
-            calc(uid);
-          });
-          renum();
-          updateTotals();
-          updateCount();
-        }
-        return rows?.length > 0;
-      } catch(e) { return false; }
-    }
-
-    function clearList() {
-      if (!confirm('Rensa hela listan och börja om?')) return;
+    function loadListIntoDOM(list) {
       document.getElementById('tbody').innerHTML = '';
-      document.getElementById('f-projekt').value = '';
-      document.getElementById('f-namn').value    = '';
-      document.getElementById('f-datum').valueAsDate = new Date();
-      localStorage.removeItem('matriallista-v1');
-      addRow(false); addRow(false); addRow(false);
-      renum(); updateTotals(); updateCount();
+      document.getElementById('f-projekt').value = list.meta?.projekt || '';
+      document.getElementById('f-namn').value    = list.meta?.namn    || '';
+      document.getElementById('f-datum').value   = list.meta?.datum   || new Date().toISOString().slice(0,10);
+      (list.rows || []).forEach(r => {
+        uid++;
+        const tr = createRow(uid);
+        document.getElementById('tbody').appendChild(tr);
+        const inp = tr.querySelectorAll('input');
+        inp[0].value = r.art||''; inp[1].value = r.enr||''; inp[2].value = r.antal||''; inp[3].value = r.pris||'';
+        if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
+          const td = tr.querySelector('.sup-cell'), bdg = tr.querySelector('.sup-badge');
+          td.dataset.supIdx = r.supIdx; applySupplier(bdg, td, SUPPLIERS[r.supIdx]);
+        }
+        calc(uid);
+      });
+      renum(); updateTotals(); updateCount(); updateListNameDisplay();
     }
 
-    // Spara vid varje input-händelse i tabellen och meta-fälten
+    function updateListNameDisplay() {
+      const data = getAllData();
+      const cur  = data.lists.find(l => l.id === data.currentId);
+      const el   = document.getElementById('current-list-name');
+      if (el) el.textContent = cur?.name || 'Namnlös';
+    }
+
+    // ── Listor-panel ──────────────────────────────────────────
+    function openListsPanel()  { saveToStorage(); renderListsPanel(); document.getElementById('lists-overlay').classList.add('open'); }
+    function closeListsPanel() { document.getElementById('lists-overlay').classList.remove('open'); }
+    function closePanelOnBg(e) { if (e.target === document.getElementById('lists-overlay')) closeListsPanel(); }
+
+    function renderListsPanel() {
+      const data = getAllData();
+      document.getElementById('lists-list').innerHTML = data.lists.map(list => {
+        const active = list.id === data.currentId;
+        return `<div class="list-item ${active?'active':''}" >
+          <span class="list-item-name" contenteditable="true"
+                onblur="renameList('${list.id}',this.textContent.trim())"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                onclick="event.stopPropagation()">${escHtml(list.name)}</span>
+          <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;${active?'opacity:.35;cursor:default;':''}"
+                  onclick="switchToList('${list.id}')" ${active?'disabled':''}>
+            ${active ? '✓' : 'Öppna'}
+          </button>
+          <button class="list-item-del" onclick="deleteList('${list.id}')" title="Ta bort">×</button>
+        </div>`;
+      }).join('');
+    }
+
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function switchToList(id) {
+      saveToStorage();
+      const data = getAllData();
+      data.currentId = id; saveAllData(data);
+      loadListIntoDOM(data.lists.find(l=>l.id===id));
+      renderListsPanel();
+    }
+
+    function createNewList() {
+      saveToStorage();
+      const data = getAllData();
+      const nl = { id: genId(), name: `Lista ${data.lists.length+1}`, meta: { projekt:'', namn:'', datum: new Date().toISOString().slice(0,10) }, rows: [] };
+      data.lists.push(nl); data.currentId = nl.id; saveAllData(data);
+      loadListIntoDOM(nl); addRow(false); addRow(false); addRow(false);
+      renderListsPanel();
+    }
+
+    function deleteList(id) {
+      const data = getAllData();
+      if (data.lists.length <= 1) { showToast('Kan inte ta bort den enda listan'); return; }
+      if (!confirm('Ta bort denna lista?')) return;
+      data.lists = data.lists.filter(l=>l.id!==id);
+      if (data.currentId === id) { data.currentId = data.lists[0].id; saveAllData(data); loadListIntoDOM(data.lists[0]); }
+      else saveAllData(data);
+      renderListsPanel();
+    }
+
+    function renameList(id, name) {
+      if (!name) return;
+      const data = getAllData();
+      const list = data.lists.find(l=>l.id===id);
+      if (list) { list.name = name; saveAllData(data); if (id===data.currentId) updateListNameDisplay(); }
+    }
+
+    // ── Exportera JSON ────────────────────────────────────────
+    function exportJSON() {
+      saveToStorage();
+      const data = getAllData();
+      const list = data.lists.find(l=>l.id===data.currentId);
+      if (!list) return;
+      const blob = new Blob([JSON.stringify(list, null, 2)], { type:'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(list.name||'materiallista').replace(/\s+/g,'-').toLowerCase()}.json`;
+      a.click();
+    }
+
+    // ── Importera JSON ────────────────────────────────────────
+    function importJSON(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const list = JSON.parse(e.target.result);
+          if (!Array.isArray(list.rows)) throw new Error();
+          saveToStorage();
+          const data = getAllData();
+          list.id   = genId();
+          list.name = list.name || file.name.replace('.json','') || 'Importerad';
+          data.lists.push(list); data.currentId = list.id; saveAllData(data);
+          loadListIntoDOM(list); renderListsPanel();
+          showToast(`"${list.name}" importerad`);
+        } catch { alert('Ogiltig JSON-fil.'); }
+      };
+      reader.readAsText(file);
+    }
+
+    // ── Importera CSV ─────────────────────────────────────────
+    function importCSV(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const text = e.target.result.replace(/^﻿/,'');
+          const lines = text.split(/\r?\n/).filter(l=>l.trim());
+          if (lines.length < 2) throw new Error();
+          const hdrs = parseCSVLine(lines[0]).map(h=>h.toLowerCase());
+          const fi = kw => hdrs.findIndex(h=>kw.some(k=>h.includes(k)));
+          const aI=fi(['artikel']), eI=fi(['e-nummer','nummer']), sI=fi(['leverantör','lev']), nI=fi(['antal']), pI=fi(['pris/st','pris/antal','pris']);
+          const rows = [];
+          for (let i=1; i<lines.length; i++) {
+            const c = parseCSVLine(lines[i]);
+            if (!c.some(x=>x.trim())) continue;
+            let si = 0;
+            if (sI>=0 && c[sI]) { const f=SUPPLIERS.findIndex(s=>s.id===c[sI].trim()); if(f>=0) si=f; }
+            rows.push({ art: aI>=0?c[aI]?.trim()||'':'', enr: eI>=0?c[eI]?.trim()||'':'', supIdx: si, antal: nI>=0?c[nI]?.trim()||'':'', pris: pI>=0?(c[pI]?.trim().replace(',','.')||''):'' });
+          }
+          saveToStorage();
+          const data = getAllData();
+          const nl = { id:genId(), name:file.name.replace('.csv',''), meta:{projekt:'',namn:'',datum:new Date().toISOString().slice(0,10)}, rows };
+          data.lists.push(nl); data.currentId=nl.id; saveAllData(data);
+          loadListIntoDOM(nl); renderListsPanel();
+          showToast(`${rows.length} rader importerade`);
+        } catch(err) { alert('Kunde inte läsa CSV-filen.'); console.error(err); }
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    function parseCSVLine(line) {
+      const res=[]; let cur='', inQ=false;
+      for (let i=0; i<line.length; i++) {
+        const ch=line[i];
+        if (ch==='"') { if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ; }
+        else if ((ch===','||ch===';')&&!inQ) { res.push(cur); cur=''; }
+        else cur+=ch;
+      }
+      return res.push(cur), res;
+    }
+
+    // Spara vid varje input
     document.getElementById('tbody').addEventListener('input', scheduleSave);
     document.querySelector('.header-meta').addEventListener('input', scheduleSave);
 
     // ── Init ─────────────────────────────────────────────────
-    const restored = loadFromStorage();
-    if (!restored) {
-      document.getElementById('f-datum').valueAsDate = new Date();
-      addRow(false);
-      addRow(false);
-      addRow(false);
-    }
+    (function init() {
+      // Migration från gammalt format
+      const old = localStorage.getItem('matriallista-v1');
+      if (old) {
+        try {
+          const { meta, rows } = JSON.parse(old);
+          const data = getAllData();
+          const ml = { id:genId(), name:meta?.projekt||'Lista 1', meta:meta||{}, rows:rows||[] };
+          data.lists.push(ml); if (!data.currentId) data.currentId=ml.id;
+          saveAllData(data); localStorage.removeItem('matriallista-v1');
+        } catch {}
+      }
+      let data = getAllData();
+      if (!data.lists.length) {
+        const first = { id:genId(), name:'Lista 1', meta:{projekt:'',namn:'',datum:new Date().toISOString().slice(0,10)}, rows:[] };
+        data.lists.push(first); data.currentId=first.id; saveAllData(data);
+        loadListIntoDOM(first); addRow(false); addRow(false); addRow(false);
+      } else {
+        if (!data.currentId) data.currentId=data.lists[0].id;
+        const cur = data.lists.find(l=>l.id===data.currentId)||data.lists[0];
+        data.currentId=cur.id; saveAllData(data); loadListIntoDOM(cur);
+        if (!document.querySelectorAll('#tbody tr').length) { addRow(false); addRow(false); addRow(false); }
+      }
+    })();
   </script>
 </body>
 </html>
