@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Materiallista</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f5f2ec;
+      --surface:      #ffffff;
+      --border:       #e0dbd2;
+      --border-strong:#b8b2a8;
+      --text:         #1a1816;
+      --muted:        #8a847a;
+      --accent:       #c0390a;
+      --accent-bg:    #fdf0eb;
+      --accent-hover: #9e2d07;
+      --ink:          #1a1816;
+      --ink-text:     #f5f2ec;
+      --shadow:       0 1px 3px rgba(0,0,0,.07), 0 6px 20px rgba(0,0,0,.05);
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 48px 24px 80px;
+    }
+
+    .page { max-width: 980px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--ink);
+      gap: 32px;
+    }
+
+    .header-brand h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      line-height: 1;
+    }
+
+    .header-brand p {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    .header-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 7px;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .meta-row label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .meta-row input {
+      border: none;
+      border-bottom: 1px solid var(--border-strong);
+      background: transparent;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      padding: 2px 4px;
+      text-align: right;
+      width: 190px;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .meta-row input:focus { border-bottom-color: var(--accent); }
+
+    /* ── Table wrapper ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    /* Column widths */
+    .c-nr    { width: 44px; }
+    .c-art   { } /* flex */
+    .c-enum  { width: 148px; }
+    .c-antal { width: 96px; }
+    .c-pris  { width: 128px; }
+    .c-tot   { width: 140px; }
+    .c-del   { width: 40px; }
+
+    /* Head */
+    thead tr { background: var(--ink); }
+
+    thead th {
+      color: var(--ink-text);
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 13px 12px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    thead th.right { text-align: right; }
+
+    /* Body rows */
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fdfaf6; }
+
+    tbody td { padding: 3px 4px; vertical-align: middle; }
+
+    .num-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 6px;
+      user-select: none;
+    }
+
+    /* Inputs */
+    .ti {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      padding: 9px 8px;
+      outline: none;
+      transition: background .12s;
+      border-radius: 1px;
+    }
+
+    .ti:focus {
+      background: var(--accent-bg);
+      outline: 1px solid var(--accent);
+      outline-offset: -1px;
+    }
+
+    .ti.mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      letter-spacing: .4px;
+    }
+
+    .ti.r { text-align: right; }
+
+    /* Calculated total cell */
+    .tot-cell {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      font-weight: 500;
+      padding-right: 14px;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    .tot-cell.empty { color: var(--border-strong); }
+
+    /* Delete button */
+    .btn-del {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+      border-radius: 50%;
+      transition: all .13s;
+      margin: 0 auto;
+    }
+
+    .btn-del:hover { color: var(--accent); background: var(--accent-bg); }
+    .btn-del svg { width: 13px; height: 13px; }
+
+    /* Footer summary */
+    tfoot tr.sum-row { background: var(--ink); }
+
+    tfoot td {
+      padding: 15px 12px;
+      color: var(--ink-text);
+    }
+
+    .sum-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 600;
+      opacity: .55;
+    }
+
+    .sum-amount {
+      text-align: right;
+      padding-right: 14px;
+    }
+
+    .sum-currency {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: .55;
+      margin-bottom: 2px;
+      text-align: right;
+    }
+
+    .sum-number {
+      font-size: 21px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -.5px;
+    }
+
+    /* ── Action bar ── */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+    }
+
+    .btn-group { display: flex; gap: 10px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 18px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .2px;
+      transition: all .14s;
+      border-radius: 2px;
+    }
+
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(192,57,10,.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border-strong);
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+    .row-count {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Row animation ── */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-3px); background: var(--accent-bg); }
+      to   { opacity: 1; transform: translateY(0);    background: transparent; }
+    }
+
+    .row-new { animation: slideIn .28s ease forwards; }
+
+    /* ── Print ── */
+    @media print {
+      body { padding: 0; background: #fff; }
+      .page { max-width: 100%; }
+      .action-bar { display: none; }
+      .c-del, .btn-del { display: none; }
+      .table-wrap { box-shadow: none; border: 1px solid #ccc; }
+      thead tr, tfoot tr.sum-row {
+        background: #1a1816 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .ti { padding: 6px 8px; }
+      .header { margin-bottom: 20px; }
+      @page { margin: 18mm 14mm; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <h1>Materiallista</h1>
+        <p>Artiklar &amp; Priskalkyl</p>
+      </div>
+      <div class="header-meta">
+        <div class="meta-row">
+          <label>Projekt</label>
+          <input id="f-projekt" type="text" placeholder="Projektnamn" />
+        </div>
+        <div class="meta-row">
+          <label>Upprättad&nbsp;av</label>
+          <input id="f-namn" type="text" placeholder="Namn" />
+        </div>
+        <div class="meta-row">
+          <label>Datum</label>
+          <input id="f-datum" type="date" />
+        </div>
+      </div>
+    </header>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table id="tbl">
+        <colgroup>
+          <col class="c-nr" />
+          <col class="c-art" />
+          <col class="c-enum" />
+          <col class="c-antal" />
+          <col class="c-pris" />
+          <col class="c-tot" />
+          <col class="c-del" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Artikel</th>
+            <th>E-Nummer</th>
+            <th class="right">Antal</th>
+            <th class="right">Pris&nbsp;/&nbsp;st&nbsp;(SEK)</th>
+            <th class="right">Total&nbsp;pris</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot>
+          <tr class="sum-row">
+            <td colspan="4"><span class="sum-label">Totalt</span></td>
+            <td></td>
+            <td class="sum-amount">
+              <div class="sum-currency">SEK</div>
+              <div class="sum-number" id="grand">0,00</div>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-bar">
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="addRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Lägg till rad
+        </button>
+        <button class="btn btn-ghost" onclick="window.print()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Skriv ut
+        </button>
+        <button class="btn btn-ghost" onclick="exportCSV()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Exportera CSV
+        </button>
+        <button class="btn btn-ghost" id="btn-pdf" onclick="exportPDF()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Exportera PDF
+        </button>
+      </div>
+      <span class="row-count" id="rowcount">0 artiklar</span>
+    </div>
+
+  </div>
+
+  <script>
+    let uid = 0;
+
+    // ── Add row ──────────────────────────────────────────────
+    function addRow(animate = true) {
+      uid++;
+      const id = uid;
+      const tbody = document.getElementById('tbody');
+      const n = tbody.querySelectorAll('tr').length + 1;
+
+      const tr = document.createElement('tr');
+      if (animate) tr.classList.add('row-new');
+      tr.dataset.uid = id;
+
+      tr.innerHTML = `
+        <td class="num-label" id="n-${id}">${n}</td>
+        <td><input class="ti" type="text" placeholder="Artikelnamn…" /></td>
+        <td><input class="ti mono" type="text" placeholder="000-000-00" maxlength="20" /></td>
+        <td><input class="ti r" type="number" placeholder="0" min="0" step="1"    oninput="calc(${id})" /></td>
+        <td><input class="ti r" type="number" placeholder="0,00" min="0" step="0.01" oninput="calc(${id})" /></td>
+        <td class="tot-cell empty" id="tot-${id}">—</td>
+        <td>
+          <button class="btn-del" onclick="delRow(this)" title="Ta bort rad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </td>`;
+
+      tbody.appendChild(tr);
+      renum();
+      updateCount();
+      if (animate) tr.querySelector('.ti').focus();
+    }
+
+    // ── Delete row ───────────────────────────────────────────
+    function delRow(btn) {
+      const tr = btn.closest('tr');
+      tr.style.transition = 'opacity .18s, transform .18s';
+      tr.style.opacity = '0';
+      tr.style.transform = 'translateX(6px)';
+      setTimeout(() => { tr.remove(); renum(); grand(); updateCount(); }, 190);
+    }
+
+    // ── Calculate row total ──────────────────────────────────
+    function calc(id) {
+      const tr = document.querySelector(`[data-uid="${id}"]`);
+      const nums = tr.querySelectorAll('input[type=number]');
+      const antal = parseFloat(nums[0].value) || 0;
+      const pris  = parseFloat(nums[1].value) || 0;
+      const tot   = antal * pris;
+      const cell  = document.getElementById('tot-' + id);
+
+      if (antal > 0 && pris > 0) {
+        cell.textContent = fmt(tot);
+        cell.classList.remove('empty');
+      } else {
+        cell.textContent = '—';
+        cell.classList.add('empty');
+      }
+      grand();
+    }
+
+    // ── Grand total ──────────────────────────────────────────
+    function grand() {
+      let sum = 0;
+      document.querySelectorAll('#tbody tr').forEach(tr => {
+        const nums = tr.querySelectorAll('input[type=number]');
+        if (!nums.length) return;
+        sum += (parseFloat(nums[0].value) || 0) * (parseFloat(nums[1].value) || 0);
+      });
+      document.getElementById('grand').textContent = fmt(sum);
+    }
+
+    // ── Renumber rows ────────────────────────────────────────
+    function renum() {
+      document.querySelectorAll('#tbody tr').forEach((tr, i) => {
+        const cell = tr.querySelector('.num-label');
+        if (cell) cell.textContent = i + 1;
+      });
+    }
+
+    // ── Row count label ──────────────────────────────────────
+    function updateCount() {
+      const n = document.querySelectorAll('#tbody tr').length;
+      document.getElementById('rowcount').textContent =
+        n === 1 ? '1 artikel' : `${n} artiklar`;
+    }
+
+    // ── Format number (sv-SE) ────────────────────────────────
+    function fmt(n) {
+      return n.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ── Export CSV ───────────────────────────────────────────
+    function exportCSV() {
+      const proj  = document.getElementById('f-projekt').value || 'materiallista';
+      const datum = document.getElementById('f-datum').value   || new Date().toISOString().slice(0,10);
+      const rows  = [['#','Artikel','E-Nummer','Antal','Pris/st (SEK)','Total pris (SEK)']];
+
+      document.querySelectorAll('#tbody tr').forEach((tr, i) => {
+        const inputs = tr.querySelectorAll('input');
+        const art    = inputs[0]?.value || '';
+        const enum_  = inputs[1]?.value || '';
+        const antal  = inputs[2]?.value || '';
+        const pris   = inputs[3]?.value || '';
+        const tot    = (parseFloat(antal)||0) * (parseFloat(pris)||0);
+        rows.push([i+1, art, enum_, antal, pris, tot.toFixed(2)]);
+      });
+
+      const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `${proj}-${datum}.csv`;
+      a.click();
+    }
+
+    // ── Init ─────────────────────────────────────────────────
+    document.getElementById('f-datum').valueAsDate = new Date();
+    addRow(false);
+    addRow(false);
+    addRow(false);
+  </script>
+</body>
+</html>
