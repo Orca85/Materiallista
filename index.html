@@ -333,6 +333,49 @@
     .sup-badge:hover  { filter: brightness(.93); }
     .sup-badge:active { transform: scale(.95); }
 
+    /* Lev-rubrik tooltip */
+    .lev-header { position: relative; cursor: default; }
+
+    .lev-tip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1816;
+      color: #f5f2ec;
+      padding: 9px 13px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: nowrap;
+      z-index: 200;
+      line-height: 1.9;
+      pointer-events: none;
+    }
+
+    .lev-tip::before {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-bottom-color: #1a1816;
+    }
+
+    .lev-header:hover .lev-tip { display: block; }
+
+    /* Spara-indikator */
+    #save-ind {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+
     /* Leverantörsuppdelning i footer */
     .supplier-sum-row { background: #f0ede6; }
     .supplier-sum-row td {
@@ -457,7 +500,15 @@
             <th>#</th>
             <th>Artikel</th>
             <th>E-Nummer</th>
-            <th>Lev</th>
+            <th class="lev-header">
+              Lev
+              <span class="lev-tip">
+                <span style="color:#1a56a0">■</span> REX — Rexel<br>
+                <span style="color:#c43d0a">■</span> AHL — Ahlsell<br>
+                <span style="color:#2a7a42">■</span> ELK — Elektroskandia<br>
+                <span style="color:#7b3fa8">■</span> ELB — elbutik.se
+              </span>
+            </th>
             <th class="right">Antal</th>
             <th class="right">Pris&nbsp;/&nbsp;st&nbsp;(SEK)</th>
             <th class="right">Total&nbsp;pris</th>
@@ -518,7 +569,16 @@
           Exportera PDF
         </button>
       </div>
-      <span class="row-count" id="rowcount">0 artiklar</span>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span id="save-ind">✓ Sparad</span>
+        <span class="row-count" id="rowcount">0 artiklar</span>
+        <button class="btn btn-ghost" onclick="clearList()" title="Rensa och börja om">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+          Ny lista
+        </button>
+      </div>
     </div>
 
   </div>
@@ -530,23 +590,20 @@
     const undoStack = [];
 
     const SUPPLIERS = [
-      { id: '',    label: '—',   color: '#b8b2a8', bg: 'transparent' },
-      { id: 'REX', label: 'REX', color: '#1a56a0', bg: '#ddeafc' },
-      { id: 'AHL', label: 'AHL', color: '#c43d0a', bg: '#fde9e2' },
-      { id: 'ELK', label: 'ELK', color: '#2a7a42', bg: '#ddf0e4' },
-      { id: 'ELB', label: 'ELB', color: '#7b3fa8', bg: '#f0e8fa' },
+      { id: '',    label: '—',   name: '',               color: '#b8b2a8', bg: 'transparent' },
+      { id: 'REX', label: 'REX', name: 'Rexel',          color: '#1a56a0', bg: '#ddeafc' },
+      { id: 'AHL', label: 'AHL', name: 'Ahlsell',        color: '#c43d0a', bg: '#fde9e2' },
+      { id: 'ELK', label: 'ELK', name: 'Elektroskandia', color: '#2a7a42', bg: '#ddf0e4' },
+      { id: 'ELB', label: 'ELB', name: 'elbutik.se',     color: '#7b3fa8', bg: '#f0e8fa' },
     ];
 
     function nextSupplier(badge) {
       const td  = badge.closest('td');
       const idx = (parseInt(td.dataset.supIdx || '0') + 1) % SUPPLIERS.length;
       td.dataset.supIdx = idx;
-      const sup = SUPPLIERS[idx];
-      badge.textContent       = sup.label;
-      badge.style.color       = sup.color;
-      badge.style.background  = sup.bg;
-      badge.style.borderColor = sup.id ? sup.color + '55' : 'transparent';
+      applySupplier(badge, td, SUPPLIERS[idx]);
       updateTotals();
+      scheduleSave();
     }
 
     function getRowSup(tr) {
@@ -559,6 +616,7 @@
       badge.style.color       = sup.color;
       badge.style.background  = sup.bg;
       badge.style.borderColor = sup.id ? sup.color + '55' : 'transparent';
+      badge.title             = sup.name || 'Klicka för att välja leverantör';
     }
 
     // ── Skapa rad-element ────────────────────────────────────
@@ -635,6 +693,7 @@
         tr.classList.remove('drag-over');
         renum();
         updateTotals();
+        scheduleSave();
       });
 
       // ── Tangentbordsnavigering ──
@@ -674,7 +733,7 @@
       document.getElementById('tbody').appendChild(tr);
       renum();
       updateCount();
-      if (animate) tr.querySelector('.ti').focus();
+      if (animate) { tr.querySelector('.ti').focus(); scheduleSave(); }
     }
 
     // ── Ta bort rad ──────────────────────────────────────────
@@ -691,7 +750,7 @@
       tr.style.transition = 'opacity .18s, transform .18s';
       tr.style.opacity    = '0';
       tr.style.transform  = 'translateX(6px)';
-      setTimeout(() => { tr.remove(); renum(); updateTotals(); updateCount(); }, 190);
+      setTimeout(() => { tr.remove(); renum(); updateTotals(); updateCount(); scheduleSave(); }, 190);
 
       showToast('Rad borttagen — tryck Ctrl+Z för att ångra');
     }
@@ -722,6 +781,7 @@
       renum();
       updateTotals();
       updateCount();
+      scheduleSave();
       showToast('Rad återställd');
     }
 
@@ -956,11 +1016,99 @@
       btn.disabled  = false;
     }
 
+    // ── localStorage ────────────────────────────────────────
+    let saveTimer = null;
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveToStorage, 500);
+    }
+
+    function saveToStorage() {
+      const meta = {
+        projekt: document.getElementById('f-projekt').value,
+        namn:    document.getElementById('f-namn').value,
+        datum:   document.getElementById('f-datum').value,
+      };
+      const rows = [];
+      document.querySelectorAll('#tbody tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        rows.push({
+          art:    inputs[0]?.value || '',
+          enr:    inputs[1]?.value || '',
+          supIdx: parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx || '0'),
+          antal:  inputs[2]?.value || '',
+          pris:   inputs[3]?.value || '',
+        });
+      });
+      localStorage.setItem('matriallista-v1', JSON.stringify({ meta, rows }));
+      const ind = document.getElementById('save-ind');
+      if (ind) {
+        ind.style.opacity = '1';
+        clearTimeout(ind._t);
+        ind._t = setTimeout(() => { ind.style.opacity = '0'; }, 1800);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem('matriallista-v1');
+        if (!raw) return false;
+        const { meta, rows } = JSON.parse(raw);
+        if (meta) {
+          document.getElementById('f-projekt').value = meta.projekt || '';
+          document.getElementById('f-namn').value    = meta.namn    || '';
+          if (meta.datum) document.getElementById('f-datum').value = meta.datum;
+        }
+        if (rows?.length) {
+          rows.forEach(r => {
+            uid++;
+            const tr = createRow(uid);
+            document.getElementById('tbody').appendChild(tr);
+            const inputs = tr.querySelectorAll('input');
+            inputs[0].value = r.art   || '';
+            inputs[1].value = r.enr   || '';
+            inputs[2].value = r.antal || '';
+            inputs[3].value = r.pris  || '';
+            if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
+              const td  = tr.querySelector('.sup-cell');
+              const bdg = tr.querySelector('.sup-badge');
+              td.dataset.supIdx = r.supIdx;
+              applySupplier(bdg, td, SUPPLIERS[r.supIdx]);
+            }
+            calc(uid);
+          });
+          renum();
+          updateTotals();
+          updateCount();
+        }
+        return rows?.length > 0;
+      } catch(e) { return false; }
+    }
+
+    function clearList() {
+      if (!confirm('Rensa hela listan och börja om?')) return;
+      document.getElementById('tbody').innerHTML = '';
+      document.getElementById('f-projekt').value = '';
+      document.getElementById('f-namn').value    = '';
+      document.getElementById('f-datum').valueAsDate = new Date();
+      localStorage.removeItem('matriallista-v1');
+      addRow(false); addRow(false); addRow(false);
+      renum(); updateTotals(); updateCount();
+    }
+
+    // Spara vid varje input-händelse i tabellen och meta-fälten
+    document.getElementById('tbody').addEventListener('input', scheduleSave);
+    document.querySelector('.header-meta').addEventListener('input', scheduleSave);
+
     // ── Init ─────────────────────────────────────────────────
-    document.getElementById('f-datum').valueAsDate = new Date();
-    addRow(false);
-    addRow(false);
-    addRow(false);
+    const restored = loadFromStorage();
+    if (!restored) {
+      document.getElementById('f-datum').valueAsDate = new Date();
+      addRow(false);
+      addRow(false);
+      addRow(false);
+    }
   </script>
 </body>
 </html>
