@@ -954,13 +954,18 @@
         doc.setTextColor(138, 132, 122);
         doc.text('ARTIKLAR & PRISKALKYL', 14, 26);
 
-        // Meta (höger)
-        doc.setFontSize(9);
+        // Meta (höger) — visa alltid etikett + värde
+        const metaLines = [];
+        if (proj)  metaLines.push(`Projekt: ${proj}`);
+        if (namn)  metaLines.push(`Upprättad av: ${namn}`);
+        metaLines.push(datum);
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(26, 24, 22);
-        let my = 17;
-        if (proj)  { doc.text(proj,  196, my, { align: 'right' }); my += 5; }
-        if (namn)  { doc.text(namn,  196, my, { align: 'right' }); my += 5; }
-        if (datum) { doc.text(datum, 196, my, { align: 'right' }); }
+        metaLines.forEach((line, i) => {
+          doc.text(line, 192, 16 + i * 5, { align: 'right' });
+        });
 
         // Linje
         doc.setDrawColor(26, 24, 22);
@@ -1058,7 +1063,7 @@
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(245, 242, 236);
-        doc.text(grandVal, 196, totalY + 7, { align: 'right' });
+        doc.text(grandVal, 190, totalY + 7, { align: 'right' });
 
         doc.save(fname);
       } catch(err) {
