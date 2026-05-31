@@ -517,6 +517,82 @@
     }
     .current-list-badge span { font-weight: 600; color: var(--text); }
 
+    /* ── Mobil ── */
+    @media (max-width: 660px) {
+      body { padding: 20px 10px 60px; }
+
+      /* Header */
+      .header { flex-direction: column; gap: 14px; margin-bottom: 24px; }
+      .header-meta { align-items: flex-start; width: 100%; }
+      .meta-row { width: 100%; justify-content: space-between; }
+      .meta-row input { flex: 1; text-align: left; width: auto; }
+
+      /* Tabell: varje rad = 3-rad grid-kort */
+      .table-wrap { overflow: visible; }
+      #tbl { display: block; width: 100%; }
+      #tbl thead { display: none; }
+      #tbl tbody { display: block; }
+
+      #tbl tbody tr {
+        display: grid;
+        grid-template-columns: 26px 1fr 1fr 1fr 34px;
+        grid-template-rows: auto auto auto;
+        padding: 4px 2px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      #tbl tbody td { display: block; padding: 0; vertical-align: unset; }
+
+      /* Rad 1: # | Artikel (span 3) | × */
+      #tbl tbody td:nth-child(1) {
+        grid-column: 1; grid-row: 1;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 11px;
+      }
+      #tbl tbody td:nth-child(2) { grid-column: 2 / 5; grid-row: 1; }
+      #tbl tbody td:nth-child(8) {
+        grid-column: 5; grid-row: 1;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 6px;
+      }
+
+      /* Rad 2: E-nummer (span 2) | Lev (span 2) */
+      #tbl tbody td:nth-child(3) { grid-column: 2 / 4; grid-row: 2; }
+      #tbl tbody td:nth-child(4) {
+        grid-column: 4 / 6; grid-row: 2;
+        display: flex; align-items: center; justify-content: flex-end;
+        padding-right: 4px;
+      }
+
+      /* Rad 3: Antal | Pris | Total (span 2) */
+      #tbl tbody td:nth-child(5) { grid-column: 2; grid-row: 3; }
+      #tbl tbody td:nth-child(6) { grid-column: 3; grid-row: 3; }
+      #tbl tbody td:nth-child(7) {
+        grid-column: 4 / 6; grid-row: 3;
+        display: flex; align-items: center; justify-content: flex-end;
+        padding-right: 6px; font-size: 12px;
+      }
+
+      /* Drag-handle fungerar inte bra på touch */
+      .drag-handle { display: none; }
+      .num-text { opacity: 1 !important; }
+
+      /* Tfoot */
+      #tbl tfoot { display: block; }
+      #tbl tfoot tr.supplier-sum-row { display: block; }
+      #tbl tfoot tr.supplier-sum-row td { display: block; overflow-x: auto; }
+      #tbl tfoot tr.sum-row { display: flex; justify-content: space-between; align-items: center; }
+      #tbl tfoot tr.sum-row td:nth-child(1) { flex: 1; }
+      #tbl tfoot tr.sum-row td:nth-child(2),
+      #tbl tfoot tr.sum-row td:nth-child(4) { display: none; }
+      #tbl tfoot tr.sum-row td.sum-amount { text-align: right; padding-right: 12px; }
+
+      /* Actionbar */
+      .action-bar { flex-direction: column; gap: 10px; align-items: stretch; margin-top: 12px; }
+      .btn-group { flex-wrap: wrap; }
+      .btn { font-size: 12px; padding: 9px 12px; }
+    }
+
     /* ── Print ── */
     @media print {
       body { padding: 0; background: #fff; }
