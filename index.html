@@ -404,6 +404,26 @@
     .drag-handle:active { cursor: grabbing; }
     .drag-handle svg { width: 11px; height: 15px; }
 
+    /* ── Enhetsbadge (st / m) ── */
+    .unit-badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      padding: 2px 5px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      transition: all .12s;
+      white-space: nowrap;
+      user-select: none;
+      flex-shrink: 0;
+      margin-right: 3px;
+    }
+    .unit-badge:hover { color: var(--text); border-color: var(--border-strong); }
+    .unit-badge.meter { color: #0e7490; border-color: #0e7490; background: #e0f4f7; }
+
     /* Drag-tillstånd */
     tbody tr.dragging  { opacity: .3; }
     tbody tr.drag-over { box-shadow: inset 0 2px 0 var(--accent); }
@@ -705,6 +725,13 @@
       { id: 'ELG', label: 'ELG', name: 'elgrossisten.se', color: '#65a30d', bg: '#f7fee7' },
     ];
 
+    function toggleUnit(badge) {
+      const isM = badge.textContent === 'm';
+      badge.textContent = isM ? 'st' : 'm';
+      badge.classList.toggle('meter', !isM);
+      scheduleSave();
+    }
+
     function nextSupplier(badge) {
       const td  = badge.closest('td');
       const idx = (parseInt(td.dataset.supIdx || '0') + 1) % SUPPLIERS.length;
@@ -750,7 +777,12 @@
           <span class="sup-badge" onclick="nextSupplier(this)" title="Klicka för att byta leverantör"
                 style="color:#b8b2a8;">—</span>
         </td>
-        <td><input class="ti r" type="number" placeholder="0" min="0" step="1" oninput="calc(${id})" /></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <input class="ti r" type="number" placeholder="0" min="0" step="0.01" oninput="calc(${id})" style="flex:1;min-width:0;" />
+            <span class="unit-badge" onclick="toggleUnit(this)" title="Klicka för att byta enhet (st/m)">st</span>
+          </div>
+        </td>
         <td><input class="ti r" type="number" placeholder="0,00" min="0" step="0.01" oninput="calc(${id})" /></td>
         <td class="tot-cell empty" id="tot-${id}">—</td>
         <td>
@@ -851,8 +883,9 @@
       const idx     = allRows.indexOf(tr);
       const vals    = [...tr.querySelectorAll('input')].map(i => i.value);
       const supIdx  = parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx || '0');
+      const unit    = tr.querySelector('.unit-badge')?.textContent || 'st';
 
-      undoStack.push({ idx, vals, supIdx });
+      undoStack.push({ idx, vals, supIdx, unit });
       if (undoStack.length > 20) undoStack.shift();
 
       tr.style.transition = 'opacity .18s, transform .18s';
@@ -866,7 +899,7 @@
     // ── Ångra (Ctrl+Z) ───────────────────────────────────────
     function undoDelete() {
       if (!undoStack.length) return;
-      const { idx, vals, supIdx } = undoStack.pop();
+      const { idx, vals, supIdx, unit } = undoStack.pop();
 
       uid++;
       const tr    = createRow(uid);
@@ -883,6 +916,11 @@
         const bdg = tr.querySelector('.sup-badge');
         td.dataset.supIdx = supIdx;
         applySupplier(bdg, td, SUPPLIERS[supIdx]);
+      }
+
+      if (unit === 'm') {
+        const badge = tr.querySelector('.unit-badge');
+        if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); }
       }
 
       calc(uid);
@@ -995,7 +1033,7 @@
     function exportCSV() {
       const proj  = document.getElementById('f-projekt').value || 'materiallista';
       const datum = document.getElementById('f-datum').value   || new Date().toISOString().slice(0,10);
-      const rows  = [['#','Artikel','E-Nummer','Leverantör','Antal','Pris/st (SEK)','Total pris (SEK)']];
+      const rows  = [['#','Artikel','E-Nummer','Leverantör','Antal','Enhet','Pris/enhet (SEK)','Total pris (SEK)']];
 
       document.querySelectorAll('#tbody tr').forEach((tr, i) => {
         const inputs = tr.querySelectorAll('input');
@@ -1004,8 +1042,9 @@
         const antal  = inputs[2]?.value || '';
         const pris   = inputs[3]?.value || '';
         const sup    = getRowSup(tr).id;
+        const unit   = tr.querySelector('.unit-badge')?.textContent || 'st';
         const tot    = (parseFloat(antal)||0) * (parseFloat(pris)||0);
-        rows.push([i+1, art, enum_, sup, antal, pris, tot.toFixed(2)]);
+        rows.push([i+1, art, enum_, sup, antal, unit, pris, tot.toFixed(2)]);
       });
 
       const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
@@ -1072,12 +1111,13 @@
           const antal  = parseFloat(inputs[2]?.value) || 0;
           const pris   = parseFloat(inputs[3]?.value) || 0;
           const sup    = getRowSup(tr);
+          const unit   = tr.querySelector('.unit-badge')?.textContent || 'st';
           tableRows.push([
             String(i + 1),
             inputs[0]?.value || '',
             inputs[1]?.value || '',
             sup.id || '—',
-            inputs[2]?.value || '',
+            inputs[2]?.value ? `${inputs[2].value} ${unit}` : '',
             pris ? fmt(pris) : '',
             antal * pris > 0 ? fmt(antal * pris) : '—',
           ]);
@@ -1186,10 +1226,12 @@
       const rows = [];
       document.querySelectorAll('#tbody tr').forEach(tr => {
         const inp = tr.querySelectorAll('input');
+        const unitBadge = tr.querySelector('.unit-badge');
         rows.push({
           art: inp[0]?.value||'', enr: inp[1]?.value||'',
           supIdx: parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx||'0'),
           antal: inp[2]?.value||'', pris: inp[3]?.value||'',
+          unit: unitBadge?.textContent || 'st',
         });
       });
       return rows;
@@ -1219,6 +1261,10 @@
         document.getElementById('tbody').appendChild(tr);
         const inp = tr.querySelectorAll('input');
         inp[0].value = r.art||''; inp[1].value = r.enr||''; inp[2].value = r.antal||''; inp[3].value = r.pris||'';
+        if (r.unit === 'm') {
+          const badge = tr.querySelector('.unit-badge');
+          if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); }
+        }
         if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
           const td = tr.querySelector('.sup-cell'), bdg = tr.querySelector('.sup-badge');
           td.dataset.supIdx = r.supIdx; applySupplier(bdg, td, SUPPLIERS[r.supIdx]);
@@ -1338,14 +1384,15 @@
           if (lines.length < 2) throw new Error();
           const hdrs = parseCSVLine(lines[0]).map(h=>h.toLowerCase());
           const fi = kw => hdrs.findIndex(h=>kw.some(k=>h.includes(k)));
-          const aI=fi(['artikel']), eI=fi(['e-nummer','nummer']), sI=fi(['leverantör','lev']), nI=fi(['antal']), pI=fi(['pris/st','pris/antal','pris']);
+          const aI=fi(['artikel']), eI=fi(['e-nummer','nummer']), sI=fi(['leverantör','lev']), nI=fi(['antal']), pI=fi(['pris/enhet','pris/st','pris/antal','pris']), uI=fi(['enhet','unit']);
           const rows = [];
           for (let i=1; i<lines.length; i++) {
             const c = parseCSVLine(lines[i]);
             if (!c.some(x=>x.trim())) continue;
             let si = 0;
             if (sI>=0 && c[sI]) { const f=SUPPLIERS.findIndex(s=>s.id===c[sI].trim()); if(f>=0) si=f; }
-            rows.push({ art: aI>=0?c[aI]?.trim()||'':'', enr: eI>=0?c[eI]?.trim()||'':'', supIdx: si, antal: nI>=0?c[nI]?.trim()||'':'', pris: pI>=0?(c[pI]?.trim().replace(',','.')||''):'' });
+            const unit = (uI>=0 && c[uI]?.trim().toLowerCase()==='m') ? 'm' : 'st';
+            rows.push({ art: aI>=0?c[aI]?.trim()||'':'', enr: eI>=0?c[eI]?.trim()||'':'', supIdx: si, antal: nI>=0?c[nI]?.trim()||'':'', pris: pI>=0?(c[pI]?.trim().replace(',','.')||''):'', unit });
           }
           saveToStorage();
           const data = getAllData();
