@@ -669,7 +669,11 @@
                 <span style="color:#0284c7">■</span> SCH — Schneider<br>
                 <span style="color:#dc2626">■</span> ABB — ABB<br>
                 <span style="color:#92400e">■</span> OEM — OEM Automatic<br>
-                <span style="color:#65a30d">■</span> ELG — elgrossisten.se
+                <span style="color:#65a30d">■</span> ELG — elgrossisten.se<br>
+                <span style="color:#e11d48">■</span> JUL — Jula<br>
+                <span style="color:#1d4ed8">■</span> BLT — Biltema<br>
+                <span style="color:#b45309">■</span> BAU — Bauhaus<br>
+                <span style="color:#15803d">■</span> HNB — Hornbach
               </span>
             </th>
             <th class="right">Antal</th>
@@ -799,12 +803,23 @@
       { id: 'ABB', label: 'ABB', name: 'ABB',            color: '#dc2626', bg: '#fee2e2' },
       { id: 'OEM', label: 'OEM', name: 'OEM Automatic',  color: '#92400e', bg: '#fef3c7' },
       { id: 'ELG', label: 'ELG', name: 'elgrossisten.se', color: '#65a30d', bg: '#f7fee7' },
+      { id: 'JUL', label: 'JUL', name: 'Jula',            color: '#e11d48', bg: '#ffe4e6' },
+      { id: 'BLT', label: 'BLT', name: 'Biltema',         color: '#1d4ed8', bg: '#dbeafe' },
+      { id: 'BAU', label: 'BAU', name: 'Bauhaus',          color: '#b45309', bg: '#fef9c3' },
+      { id: 'HNB', label: 'HNB', name: 'Hornbach',         color: '#15803d', bg: '#dcfce7' },
     ];
 
     function toggleUnit(badge) {
       const isM = badge.textContent === 'm';
+      const antalInput = badge.closest('div').querySelector('input[type=number]');
       badge.textContent = isM ? 'st' : 'm';
       badge.classList.toggle('meter', !isM);
+      if (isM) {
+        antalInput.step = '1';
+        if (antalInput.value) antalInput.value = Math.round(parseFloat(antalInput.value));
+      } else {
+        antalInput.step = '0.01';
+      }
       scheduleSave();
     }
 
@@ -855,7 +870,7 @@
         </td>
         <td>
           <div style="display:flex;align-items:center;gap:2px;">
-            <input class="ti r" type="number" placeholder="0" min="0" step="0.01" oninput="calc(${id})" style="flex:1;min-width:0;" />
+            <input class="ti r" type="number" placeholder="0" min="0" step="1" oninput="calc(${id})" style="flex:1;min-width:0;" />
             <span class="unit-badge" onclick="toggleUnit(this)" title="Klicka för att byta enhet (st/m)">st</span>
           </div>
         </td>
@@ -996,7 +1011,9 @@
 
       if (unit === 'm') {
         const badge = tr.querySelector('.unit-badge');
+        const antalInp = tr.querySelector('input[type=number]');
         if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); }
+        if (antalInp) antalInp.step = '0.01';
       }
 
       calc(uid);
@@ -1339,7 +1356,7 @@
         inp[0].value = r.art||''; inp[1].value = r.enr||''; inp[2].value = r.antal||''; inp[3].value = r.pris||'';
         if (r.unit === 'm') {
           const badge = tr.querySelector('.unit-badge');
-          if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); }
+          if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); inp[2].step = '0.01'; }
         }
         if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
           const td = tr.querySelector('.sup-cell'), bdg = tr.querySelector('.sup-badge');
