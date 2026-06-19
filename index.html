@@ -666,23 +666,7 @@
             <th>E-Nummer</th>
             <th class="lev-header">
               Lev
-              <span class="lev-tip">
-                <span style="color:#1a56a0">■</span> REX — Rexel<br>
-                <span style="color:#c43d0a">■</span> AHL — Ahlsell<br>
-                <span style="color:#2a7a42">■</span> ELK — Elektroskandia<br>
-                <span style="color:#7b3fa8">■</span> ELB — elbutik.se<br>
-                <span style="color:#d97706">■</span> SOL — Solar<br>
-                <span style="color:#0e7490">■</span> WSC — Wesco<br>
-                <span style="color:#be185d">■</span> STR — Storel<br>
-                <span style="color:#0284c7">■</span> SCH — Schneider<br>
-                <span style="color:#dc2626">■</span> ABB — ABB<br>
-                <span style="color:#92400e">■</span> OEM — OEM Automatic<br>
-                <span style="color:#65a30d">■</span> ELG — elgrossisten.se<br>
-                <span style="color:#e11d48">■</span> JUL — Jula<br>
-                <span style="color:#1d4ed8">■</span> BLT — Biltema<br>
-                <span style="color:#b45309">■</span> BAU — Bauhaus<br>
-                <span style="color:#15803d">■</span> HNB — Hornbach
-              </span>
+              <span class="lev-tip" id="lev-tip"></span>
             </th>
             <th class="right">Antal</th>
             <th class="right">Pris&nbsp;/&nbsp;enhet&nbsp;(SEK)</th>
@@ -1577,6 +1561,16 @@
     // Spara vid varje input
     document.getElementById('tbody').addEventListener('input', scheduleSave);
     document.querySelector('.header-meta').addEventListener('input', scheduleSave);
+
+    // ── Bygg leverantörstooltip från SUPPLIERS ───────────────
+    (function buildLevTip() {
+      const tip = document.getElementById('lev-tip');
+      if (!tip) return;
+      tip.innerHTML = SUPPLIERS
+        .filter(s => s.id && s.id !== 'CUSTOM')
+        .map((s, i, arr) => `<span style="color:${s.color}">■</span> ${s.id} — ${s.name}${i < arr.length - 1 ? '<br>' : ''}`)
+        .join('');
+    })();
 
     // ── Init ─────────────────────────────────────────────────
     (function init() {
