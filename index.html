@@ -1132,7 +1132,7 @@
           const color = sup?.color || '#8a847a';
           return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:18px;">
             <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
-            <span style="font-size:10.5px;font-weight:700;color:${color};letter-spacing:.5px;">${escHtml(id)}</span>
+            <span style="font-size:10.5px;font-weight:700;color:${color};letter-spacing:.5px;">${escHtml(sup?.name || id)}</span>
             <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#1a1816;">${fmt(s)}</span>
           </span>`;
         }).join('');
