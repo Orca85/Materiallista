@@ -332,6 +332,15 @@
 
     .sup-select:focus { outline: none; border-color: var(--accent); }
 
+    .sup-custom {
+      width: 100%;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      padding: 3px 5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     /* Lev-rubrik tooltip */
     .lev-header { position: relative; cursor: default; }
 
@@ -806,6 +815,7 @@
       { id: 'BLT', label: 'BLT', name: 'Biltema',         color: '#1d4ed8', bg: '#dbeafe' },
       { id: 'BAU', label: 'BAU', name: 'Bauhaus',          color: '#b45309', bg: '#fef9c3' },
       { id: 'HNB', label: 'HNB', name: 'Hornbach',         color: '#15803d', bg: '#dcfce7' },
+      { id: 'CUSTOM', label: 'Fri…', name: 'Annan',       color: '#8a847a', bg: '#f5f2ec' },
     ];
 
     function toggleUnit(badge) {
@@ -823,6 +833,26 @@
     }
 
     function onSupChange(sel) {
+      if (sel.value === 'CUSTOM') {
+        const td = sel.closest('td');
+        const customInp = td.querySelector('.sup-custom');
+        sel.style.display = 'none';
+        customInp.style.display = '';
+        customInp.focus();
+      } else {
+        styleSupSelect(sel);
+      }
+      updateTotals();
+      scheduleSave();
+    }
+
+    function showSupSelect(td) {
+      const sel = td.querySelector('.sup-select');
+      const customInp = td.querySelector('.sup-custom');
+      sel.value = '';
+      sel.style.display = '';
+      customInp.style.display = 'none';
+      customInp.value = '';
       styleSupSelect(sel);
       updateTotals();
       scheduleSave();
@@ -830,7 +860,13 @@
 
     function getRowSup(tr) {
       const sel = tr.querySelector('.sup-select');
-      return sel ? (SUPPLIERS.find(s => s.id === sel.value) || SUPPLIERS[0]) : SUPPLIERS[0];
+      if (!sel) return SUPPLIERS[0];
+      if (sel.value === 'CUSTOM') {
+        const customInp = tr.querySelector('.sup-custom');
+        const name = customInp?.value?.trim() || '';
+        return { id: name || '?', label: name || '?', name, color: '#8a847a', bg: '#f5f2ec' };
+      }
+      return SUPPLIERS.find(s => s.id === sel.value) || SUPPLIERS[0];
     }
 
     function styleSupSelect(sel) {
@@ -863,6 +899,7 @@
           <select class="sup-select" onchange="onSupChange(this)">
             ${SUPPLIERS.map(s => `<option value="${s.id}">${s.label}</option>`).join('')}
           </select>
+          <input class="sup-custom ti" type="text" placeholder="Grossist…" style="display:none;" title="Tryck Esc för att återgå till listan" />
         </td>
         <td>
           <div style="display:flex;align-items:center;gap:2px;">
@@ -880,6 +917,16 @@
             </svg>
           </button>
         </td>`;
+
+      // Hantera custom leverantörsinput
+      const supCustom = tr.querySelector('.sup-custom');
+      supCustom.addEventListener('input', () => { updateTotals(); scheduleSave(); });
+      supCustom.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          showSupSelect(supCustom.closest('td'));
+        }
+      });
 
       // Förhindra drag från input/knappar
       tr.querySelectorAll('input, button').forEach(el => el.draggable = false);
@@ -968,11 +1015,13 @@
       const tr      = btn.closest('tr');
       const allRows = [...document.getElementById('tbody').querySelectorAll('tr')];
       const idx     = allRows.indexOf(tr);
-      const vals    = [...tr.querySelectorAll('input')].map(i => i.value);
-      const supIdx  = parseInt(tr.querySelector('.sup-cell')?.dataset.supIdx || '0');
-      const unit    = tr.querySelector('.unit-badge')?.textContent || 'st';
+      const vals      = [...tr.querySelectorAll('input')].map(i => i.value);
+      const supSel    = tr.querySelector('.sup-select');
+      const supVal    = supSel?.value || '';
+      const customSup = supVal === 'CUSTOM' ? (tr.querySelector('.sup-custom')?.value || '') : '';
+      const unit      = tr.querySelector('.unit-badge')?.textContent || 'st';
 
-      undoStack.push({ idx, vals, supIdx, unit });
+      undoStack.push({ idx, vals, supVal, customSup, unit });
       if (undoStack.length > 20) undoStack.shift();
 
       tr.style.transition = 'opacity .18s, transform .18s';
@@ -986,7 +1035,7 @@
     // ── Ångra (Ctrl+Z) ───────────────────────────────────────
     function undoDelete() {
       if (!undoStack.length) return;
-      const { idx, vals, supIdx, unit } = undoStack.pop();
+      const { idx, vals, supVal, customSup, unit } = undoStack.pop();
 
       uid++;
       const tr    = createRow(uid);
@@ -998,9 +1047,18 @@
       const inputs = tr.querySelectorAll('input');
       vals.forEach((v, i) => { if (inputs[i]) inputs[i].value = v; });
 
-      if (supIdx > 0 && supIdx < SUPPLIERS.length) {
+      if (supVal) {
         const sel = tr.querySelector('.sup-select');
-        if (sel) { sel.value = SUPPLIERS[supIdx].id; styleSupSelect(sel); }
+        const customInp = tr.querySelector('.sup-custom');
+        if (sel) {
+          sel.value = supVal;
+          if (supVal === 'CUSTOM') {
+            sel.style.display = 'none';
+            if (customInp) { customInp.style.display = ''; customInp.value = customSup || ''; }
+          } else {
+            styleSupSelect(sel);
+          }
+        }
       }
 
       if (unit === 'm') {
@@ -1070,10 +1128,11 @@
       if (entries.length > 0) {
         supRow.style.display = '';
         breakdown.innerHTML  = entries.map(([id, s]) => {
-          const sup = SUPPLIERS.find(x => x.id === id);
+          const sup   = SUPPLIERS.find(x => x.id === id);
+          const color = sup?.color || '#8a847a';
           return `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:18px;">
-            <span style="width:7px;height:7px;border-radius:50%;background:${sup.color};display:inline-block;flex-shrink:0;"></span>
-            <span style="font-size:10.5px;font-weight:700;color:${sup.color};letter-spacing:.5px;">${id}</span>
+            <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
+            <span style="font-size:10.5px;font-weight:700;color:${color};letter-spacing:.5px;">${escHtml(id)}</span>
             <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#1a1816;">${fmt(s)}</span>
           </span>`;
         }).join('');
@@ -1314,9 +1373,12 @@
       document.querySelectorAll('#tbody tr').forEach(tr => {
         const inp = tr.querySelectorAll('input');
         const unitBadge = tr.querySelector('.unit-badge');
+        const sel = tr.querySelector('.sup-select');
+        const customInp = tr.querySelector('.sup-custom');
         rows.push({
           art: inp[0]?.value||'', enr: inp[1]?.value||'',
-          supIdx: SUPPLIERS.findIndex(s => s.id === (tr.querySelector('.sup-select')?.value||'')),
+          supVal: sel?.value || '',
+          customSup: sel?.value === 'CUSTOM' ? (customInp?.value || '') : '',
           antal: inp[2]?.value||'', pris: inp[3]?.value||'',
           unit: unitBadge?.textContent || 'st',
         });
@@ -1352,9 +1414,18 @@
           const badge = tr.querySelector('.unit-badge');
           if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); inp[2].step = '0.01'; }
         }
-        if (r.supIdx > 0 && r.supIdx < SUPPLIERS.length) {
-          const sel = tr.querySelector('.sup-select');
-          if (sel) { sel.value = SUPPLIERS[r.supIdx].id; styleSupSelect(sel); }
+        const sel = tr.querySelector('.sup-select');
+        const customInp = tr.querySelector('.sup-custom');
+        // supVal är det nya formatet; supIdx är bakåtkompatibilitet
+        const supVal = r.supVal !== undefined ? r.supVal : (r.supIdx > 0 && r.supIdx < SUPPLIERS.length ? SUPPLIERS[r.supIdx].id : '');
+        if (sel && supVal) {
+          sel.value = supVal;
+          if (supVal === 'CUSTOM') {
+            sel.style.display = 'none';
+            if (customInp) { customInp.style.display = ''; customInp.value = r.customSup || ''; }
+          } else {
+            styleSupSelect(sel);
+          }
         }
         calc(uid);
       });
