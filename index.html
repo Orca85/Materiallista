@@ -1167,10 +1167,11 @@
 
       document.querySelectorAll('#tbody tr').forEach((tr, i) => {
         const inputs = tr.querySelectorAll('input');
+        const nums   = tr.querySelectorAll('input[type=number]');
         const art    = inputs[0]?.value || '';
         const enum_  = inputs[1]?.value || '';
-        const antal  = inputs[2]?.value || '';
-        const pris   = inputs[3]?.value || '';
+        const antal  = nums[0]?.value || '';
+        const pris   = nums[1]?.value || '';
         const sup    = getRowSup(tr).id;
         const unit   = tr.querySelector('.unit-badge')?.textContent || 'st';
         const tot    = (parseFloat(antal)||0) * (parseFloat(pris)||0);
@@ -1238,8 +1239,9 @@
         const tableRows = [];
         document.querySelectorAll('#tbody tr').forEach((tr, i) => {
           const inputs = tr.querySelectorAll('input');
-          const antal  = parseFloat(inputs[2]?.value) || 0;
-          const pris   = parseFloat(inputs[3]?.value) || 0;
+          const nums   = tr.querySelectorAll('input[type=number]');
+          const antal  = parseFloat(nums[0]?.value) || 0;
+          const pris   = parseFloat(nums[1]?.value) || 0;
           const sup    = getRowSup(tr);
           const unit   = tr.querySelector('.unit-badge')?.textContent || 'st';
           tableRows.push([
@@ -1247,7 +1249,7 @@
             inputs[0]?.value || '',
             inputs[1]?.value || '',
             sup.id || '—',
-            inputs[2]?.value ? `${inputs[2].value} ${unit}` : '',
+            nums[0]?.value ? `${nums[0].value} ${unit}` : '',
             pris ? fmt(pris) : '',
             antal * pris > 0 ? fmt(antal * pris) : '—',
           ]);
@@ -1356,6 +1358,7 @@
       const rows = [];
       document.querySelectorAll('#tbody tr').forEach(tr => {
         const inp = tr.querySelectorAll('input');
+        const nums = tr.querySelectorAll('input[type=number]');
         const unitBadge = tr.querySelector('.unit-badge');
         const sel = tr.querySelector('.sup-select');
         const customInp = tr.querySelector('.sup-custom');
@@ -1363,7 +1366,7 @@
           art: inp[0]?.value||'', enr: inp[1]?.value||'',
           supVal: sel?.value || '',
           customSup: sel?.value === 'CUSTOM' ? (customInp?.value || '') : '',
-          antal: inp[2]?.value||'', pris: inp[3]?.value||'',
+          antal: nums[0]?.value||'', pris: nums[1]?.value||'',
           unit: unitBadge?.textContent || 'st',
         });
       });
@@ -1393,10 +1396,11 @@
         const tr = createRow(uid);
         document.getElementById('tbody').appendChild(tr);
         const inp = tr.querySelectorAll('input');
-        inp[0].value = r.art||''; inp[1].value = r.enr||''; inp[2].value = r.antal||''; inp[3].value = r.pris||'';
+        const nums = tr.querySelectorAll('input[type=number]');
+        inp[0].value = r.art||''; inp[1].value = r.enr||''; nums[0].value = r.antal||''; nums[1].value = r.pris||'';
         if (r.unit === 'm') {
           const badge = tr.querySelector('.unit-badge');
-          if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); inp[2].step = '0.01'; }
+          if (badge) { badge.textContent = 'm'; badge.classList.add('meter'); nums[0].step = '0.01'; }
         }
         const sel = tr.querySelector('.sup-select');
         const customInp = tr.querySelector('.sup-custom');
